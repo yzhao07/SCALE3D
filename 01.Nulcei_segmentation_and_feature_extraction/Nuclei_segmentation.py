@@ -25,7 +25,7 @@ def main():
     parser.add_argument('--nuclei_channel', type=str, default='s00',help="nuclei channel")
     parser.add_argument('--median', type=int, default=2,help="median kernel size")
     parser.add_argument('--diameter', type=int, default=18,help="estimated diameter size")
-    parser.add_argument('--visualization', type=lambda x: x.lower() == 'true', default=True,help="if visualize")
+    parser.add_argument('--visualization', type=lambda x: x.lower() == 'true', default=False,help="if visualize")
     parser.add_argument('--outdir', type=str, default=None, help="output directory for cellpose results")
     parser.add_argument('--sample_name', type=str, default=None, help="optional sample name for logging")
     parser.add_argument('--block_size', type=int, default=1024, help="XY block size")

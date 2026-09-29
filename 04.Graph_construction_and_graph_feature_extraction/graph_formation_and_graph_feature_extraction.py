@@ -162,11 +162,10 @@ def process_sample(
 
         df_blk = pd.concat(all_feats, axis=1)
         stats = pd.concat(
-            [
-                df_blk.mean(axis=1).rename("mean"),
-                df_blk.min(axis=1).rename("min"),
+            [   df_blk.std(axis=1).rename("std"),
                 df_blk.max(axis=1).rename("max"),
-                df_blk.std(axis=1).rename("std"),
+                df_blk.min(axis=1).rename("min"),
+                df_blk.mean(axis=1).rename("mean"),
                 df_blk.median(axis=1).rename("median"),
             ],
             axis=1,

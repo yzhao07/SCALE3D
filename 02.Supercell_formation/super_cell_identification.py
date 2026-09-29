@@ -17,10 +17,10 @@ def main():
     parser = argparse.ArgumentParser(description="Perform supercell identification based on cell segmentation")
     parser.add_argument('--cellseg', type=str, required=True, help="segmentation directory")
     parser.add_argument('--patch_size', type=int, default=1024, help="patch size")
-    parser.add_argument('--max_num', type=int, default=1000000, help="maximum number of cells")
-    parser.add_argument('--distance_thres', type=int, default=40, help="distance for radius")
+    parser.add_argument('--max_num', type=int, default=15, help="maximum number of cells")
+    parser.add_argument('--distance_thres', type=int, default=30, help="distance for radius")
     parser.add_argument('--similarity', type=float, default=0.7, help="similarity threshold")
-    parser.add_argument('--normalization',dest='normalization',type=str,default="./normalization/feat53_mean_std_scaler.pkl",required=True,help="normalization scaler pickle path")
+    parser.add_argument('--normalization',dest='normalization',type=str,default="../Evaluation/test/feat53_mean_std_scaler.pkl",required=True,help="normalization scaler pickle path")
     parser.add_argument('--sample_name', type=str, default=None, help="optional sample name")
     parser.add_argument('--individual_cells_dir', type=str, default=None, help="directory of individual cell features")
     parser.add_argument('--out_folder', type=str, default=None, help="output directory for supercell features")
@@ -104,8 +104,8 @@ def main():
         s = str(sim).replace(".", "")
         for x in range(rangex):
             for y in range(rangey):
-                supernode_feat = "original2_"+str(args.patch_size)+f"_feature{args.feature_dim}_sim{s}_max{max_num}_num{max_num}_min{args.min_size}_d{distance_thres}_blk_"+str(x)+"_"+str(y)+".npz"
-                supernode_nuclei_id_list = "original2_"+str(args.patch_size)+f"_nucleiId{args.feature_dim}_sim{s}_max{max_num}_num{max_num}_min{args.min_size}_d{distance_thres}_blk_"+str(x)+"_"+str(y)
+                supernode_feat = "supercell_"+str(args.patch_size)+f"_feature{args.feature_dim}_d{distance_thres}_blk_"+str(x)+"_"+str(y)+".npz"
+                supernode_nuclei_id_list = "supercell_"+str(args.patch_size)+f"_nucleiId{args.feature_dim}_d{distance_thres}_blk_"+str(x)+"_"+str(y)
                 if os.path.exists(os.path.join(out_folder,supernode_feat)):
                     print("skip: ", supernode_feat)
                     continue
