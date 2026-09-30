@@ -1,0 +1,73 @@
+name: scale3d
+
+channels:
+  - rapidsai
+  - nvidia
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - python=3.10
+  - cudf=25.10
+  - cuml=25.10
+  - cugraph=25.10
+  - cuvs=25.10
+  - rmm=25.10
+  - cupy=13.6
+  - dask=2025.9.1
+  - cuda-version=13.0
+  - cudnn
+  - cutensor
+  - cusparselt
+
+  - numpy=2.2
+  - pandas=2.3
+  - scipy=1.15
+  - scikit-learn=1.7
+  - scikit-image=0.24
+  - statsmodels=0.14
+  - scanpy=1.11
+  - python-igraph=1.0
+  - leidenalg=0.11
+  - networkx=3.4
+  - h5py
+  - pynndescent
+  - umap-learn
+  - numba
+  - xarray
+  - zarr<3
+  - dask-image
+  - aiohttp
+  - cycler
+  - docrep
+  - fsspec
+  - matplotlib-scalebar
+  - omnipath
+  - pillow
+  - tifffile
+  - typing-extensions
+  - validators
+
+  - lifelines=0.30
+  - matplotlib=3.10
+  - seaborn=0.13
+  - joblib=1.5
+  - jinja2
+  - polars
+  - tqdm
+  - pyyaml
+  - jupyterlab
+  - ipykernel
+  - nbconvert
+  - setuptools<81
+  - pip
+
+  - pip:
+      - anndata==0.10.9
+      - squidpy==1.2.3
+      - rapids-singlecell==0.13.1
+      - category-encoders==2.8.1
+      - mrmr-selection==0.2.8
+      - MLstatkit==0.1.91
+      - rocauc_comparison==0.1.1
+      - scikit-misc==0.5.2

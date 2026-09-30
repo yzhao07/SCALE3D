@@ -13,12 +13,12 @@ SCALE3D processes multiplexed 3D pathology images in four stages:
 3. **Supercell subtyping** learns cohort-level epithelial and stromal supercell subtypes using PCA, Harmony, a neighbor graph, and Leiden clustering.
 4. **Graph construction and feature extraction** constructs spatial supercell graphs and aggregates their interaction, enrichment, centrality, and topology measurements into one feature vector per specimen.
 
-| Stage | Main input | Main output | Scope |
-| --- | --- | --- | --- |
-| 1. Segmentation and nuclear features | 3D HDF5 volume and gland mask | Nucleus masks and per-nucleus arrays | Specimen |
-| 2. Supercell formation | Per-nucleus arrays and fitted scaler | Per-supercell arrays and membership maps | Specimen |
-| 3. Supercell subtyping | Cohort supercell arrays | Epithelial and stromal `.h5ad` files | Cohort |
-| 4. Graph features | Supercells, subtype files, and metadata | Specimen-level feature CSV | Cohort |
+| Stage | Main input | Main output |
+| --- | --- | --- |
+| 1. Segmentation and nuclear features | 3D HDF5 volume and gland mask | Nucleus masks and per-nucleus arrays |
+| 2. Supercell formation | Per-nucleus arrays and fitted scaler | Per-supercell arrays and membership maps |
+| 3. Supercell subtyping | Cohort supercell arrays | Epithelial and stromal `.h5ad` files |
+| 4. Graph features | Supercells, subtype files, and metadata | Specimen-level feature CSV |
 
 ## Repository structure
 
@@ -70,8 +70,6 @@ DATA_ROOT/
 └── features/
 ```
 
-Replace `/path/to/DATA_ROOT` and sample names in the examples with local values.
-
 ## 1. Nuclei segmentation and nuclear feature extraction
 
 ### 1.1 Nuclei segmentation
@@ -96,8 +94,6 @@ cellpose/
 ├── mask_blk_<x>_<y>.avi       # optional
 └── imgdn_blk_<x>_<y>.avi      # optional
 ```
-
-The NIfTI files use an identity affine, so coordinates are voxel indices rather than calibrated physical coordinates. A block is skipped only when both its mask and denoised-image files exist.
 
 #### Example
 
@@ -253,15 +249,7 @@ Script: `04.Graph_construction_and_graph_feature_extraction/graph_formation_and_
 
 ### Input
 
-This cohort-level stage requires the epithelial and stromal `.h5ad` files, stage-2 supercell arrays, and a metadata CSV:
-
-```csv
-name,BCR5yr
-sample_A,0
-sample_B,1
-```
-
-Identifiers must match the metadata sample column, `slide_id` in both AnnData files, and directory names under `supercell_root`. `--feature_file_prefix` is the same prefix passed as `--data` in stage 3.
+This cohort-level stage requires the epithelial and stromal `.h5ad` files, stage-2 supercell arrays, and a metadata CSV.
 
 | Argument | Required | Default | Meaning |
 | --- | --- | --- | --- |
@@ -271,13 +259,7 @@ Identifiers must match the metadata sample column, `slide_id` in both AnnData fi
 | `--feature_file_prefix` | Yes | — | Stage-2 filename prefix |
 | `--supercell_root` | Yes | — | Root containing sample directories |
 | `--output_csv` | Yes | — | Output feature table |
-| `--radius` | No | `400` | Graph radius in voxel units |
-| `--label_column` | No | `BCR5yr` | Outcome column |
-| `--sample_column` | No | `name` | Specimen column |
-| `--block_size` | No | `1024` | Stage-2 patch size |
-| `--n_jobs` | No | `6` | Parallel workers |
-
-For each patch, the code assigns epithelial subtype IDs and stromal IDs offset by the epithelial subtype count. Squidpy constructs a radius graph and calculates graph density, average degree, clustering coefficient, node count, subtype interaction frequencies, neighborhood-enrichment Z-scores, and subtype centrality. Patch values are summarized by specimen using mean, minimum, maximum, standard deviation, and median.
+| `--radius` | Yes | `40` | Graph radius in voxel units |
 
 ### Output
 

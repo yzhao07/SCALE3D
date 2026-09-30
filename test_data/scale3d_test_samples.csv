@@ -1,0 +1,4 @@
+name,id,BCR5yr,OriginalPath,StartIdx,endIdx,GlandMaskPath
+Test1,Test1,1,test_data/Test1/image.h5,0,64,test_data/Test1/gland_mask.nii.gz
+Test2,Test2,0,test_data/Test2/image.h5,0,64,test_data/Test2/gland_mask.nii.gz
+Test3,Test3,1,test_data/Test3/image.h5,0,64,test_data/Test3/gland_mask.nii.gz
