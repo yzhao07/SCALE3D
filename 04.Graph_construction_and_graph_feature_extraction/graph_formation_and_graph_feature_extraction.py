@@ -202,7 +202,7 @@ def main():
         help="root directory containing <sample>/supercell folders",
     )
     parser.add_argument("--output_csv", type=str, required=True, help="output CSV path")
-    parser.add_argument("--radius", type=int, default=400, help="spatial radius for graph")
+    parser.add_argument("--radius", type=int, default=120, help="spatial radius for graph")
     parser.add_argument("--n_jobs", type=int, default=6, help="parallel sample workers")
     parser.add_argument("--label_column", type=str, default="BCR5yr", help="label column in metadata CSV")
     parser.add_argument( "--sample_column", type=str, default="name", help="sample name column in metadata CSV")

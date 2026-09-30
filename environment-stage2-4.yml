@@ -1,4 +1,4 @@
-name: scale3d
+name: scale3d-supercell
 
 channels:
   - rapidsai

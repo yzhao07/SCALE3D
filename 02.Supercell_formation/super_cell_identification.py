@@ -104,8 +104,8 @@ def main():
         s = str(sim).replace(".", "")
         for x in range(rangex):
             for y in range(rangey):
-                supernode_feat = "supercell_"+str(args.patch_size)+f"_feature{args.feature_dim}_d{distance_thres}_blk_"+str(x)+"_"+str(y)+".npz"
-                supernode_nuclei_id_list = "supercell_"+str(args.patch_size)+f"_nucleiId{args.feature_dim}_d{distance_thres}_blk_"+str(x)+"_"+str(y)
+                supernode_feat = "supercell_"+str(args.patch_size)+f"_feature{args.feature_dim}_r{distance_thres}_blk_"+str(x)+"_"+str(y)+".npz"
+                supernode_nuclei_id_list = "supercell_"+str(args.patch_size)+f"_nucleiId{args.feature_dim}_r{distance_thres}_blk_"+str(x)+"_"+str(y)
                 if os.path.exists(os.path.join(out_folder,supernode_feat)):
                     print("skip: ", supernode_feat)
                     continue

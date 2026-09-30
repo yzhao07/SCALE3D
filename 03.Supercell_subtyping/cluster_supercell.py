@@ -71,6 +71,8 @@ def main():
     parser.add_argument("--block_size", type=int, default=1024, help="XY block size")
     parser.add_argument("--grid_size", type=int, default=4, help="number of blocks per axis")
     parser.add_argument("--gpu_id", type=int, default=0, help="GPU id for RAPIDS")
+    parser.add_argument("--backend", choices=("gpu", "cpu"), default="gpu", help="subtyping backend")
+    parser.add_argument("--skip_umap", action="store_true", help="skip optional UMAP embedding")
     
     args = parser.parse_args()
 
@@ -116,32 +118,66 @@ def main():
     adata.obs['slide_id'] = specimen
     t = time.time() - start
     
-    cp.cuda.Device(args.gpu_id).use()
-    print(rmm.mr.get_current_device_resource_type())
-    rmm.reinitialize(
-        managed_memory=False,
-        pool_allocator=True,
-        devices=args.gpu_id,
-    )
-    cp.cuda.set_allocator(rmm_cupy_allocator)
-    print(f"RAPIDS memory manager initialized on GPU {cp.cuda.Device().id}")
-    rsc.get.anndata_to_GPU(adata)
-    rsc.pp.scale(adata)
-    print(adata)
-    rsc.pp.pca(adata, n_comps=20)
-    print(adata)
-    rsc.pp.harmony_integrate(adata, key="slide_id", dtype=cp.float32)
-    # -----------------------------
-    #  Graph + Leiden + UMAP
-    # -----------------------------
-    # neighbors 
-    rsc.pp.neighbors(adata, n_neighbors=nn, n_pcs=20,use_rep="X_pca_harmony",key_added="harmony")
-    rsc.tl.umap(adata,neighbors_key="harmony",key_added="X_umap_harmony")
-    rsc.tl.leiden(adata, resolution=res,neighbors_key="harmony",key_added="leiden_harmony")
+    n_comps = min(20, adata.n_obs - 1, adata.n_vars)
+    if n_comps < 2:
+        raise RuntimeError("at least three supercells are required for PCA and subtyping")
+    effective_neighbors = min(nn, adata.n_obs - 1)
+    print(f"Using {n_comps} PCA components and {effective_neighbors} neighbors")
+    if args.backend == "cpu":
+        sc.pp.scale(adata)
+        sc.pp.pca(adata, n_comps=n_comps)
+        print("Running Harmony on CPU", flush=True)
+        sc.external.pp.harmony_integrate(adata, key="slide_id")
+        print("Building neighbor graph on CPU", flush=True)
+        sc.pp.neighbors(
+            adata,
+            n_neighbors=effective_neighbors,
+            n_pcs=n_comps,
+            use_rep="X_pca_harmony",
+            key_added="harmony",
+        )
+        if not args.skip_umap:
+            print("Computing UMAP on CPU", flush=True)
+            sc.tl.umap(adata, neighbors_key="harmony")
+            adata.obsm["X_umap_harmony"] = adata.obsm.pop("X_umap")
+        print("Running Leiden on CPU", flush=True)
+        sc.tl.leiden(
+            adata,
+            resolution=res,
+            neighbors_key="harmony",
+            key_added="leiden_harmony",
+        )
+    else:
+        cp.cuda.Device(args.gpu_id).use()
+        print(rmm.mr.get_current_device_resource_type())
+        rmm.reinitialize(managed_memory=False, pool_allocator=True, devices=args.gpu_id)
+        cp.cuda.set_allocator(rmm_cupy_allocator)
+        print(f"RAPIDS memory manager initialized on GPU {cp.cuda.Device().id}")
+        rsc.get.anndata_to_GPU(adata)
+        rsc.pp.scale(adata)
+        rsc.pp.pca(adata, n_comps=n_comps)
+        harmony_kwargs = {}
+        if adata.n_obs < 30:
+            harmony_kwargs["n_clusters"] = min(2, adata.n_obs)
+        print("Running Harmony on GPU", flush=True)
+        rsc.pp.harmony_integrate(adata, key="slide_id", dtype=cp.float32, **harmony_kwargs)
+        print("Building neighbor graph on GPU", flush=True)
+        rsc.pp.neighbors(
+            adata,
+            n_neighbors=effective_neighbors,
+            n_pcs=n_comps,
+            use_rep="X_pca_harmony",
+            key_added="harmony",
+        )
+        if not args.skip_umap:
+            print("Computing UMAP on GPU", flush=True)
+            rsc.tl.umap(adata, neighbors_key="harmony", key_added="X_umap_harmony")
+        print("Running Leiden on GPU", flush=True)
+        rsc.tl.leiden(adata, resolution=res, neighbors_key="harmony", key_added="leiden_harmony")
+        rsc.get.anndata_to_CPU(adata)
     
     t = time.time() - start
     print(f"umap {t:.2f} seconds")
-    rsc.get.anndata_to_CPU(adata)
     output_path = args.outfile if args.outfile.endswith(".h5ad") else f"{args.outfile}.h5ad"
     output_dir = os.path.dirname(output_path)
     if output_dir:

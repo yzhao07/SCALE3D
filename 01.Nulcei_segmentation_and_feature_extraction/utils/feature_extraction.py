@@ -123,11 +123,16 @@ def kdtree(centroids, k=10, distance_thres=np.inf):
     
     if n_centroids < 3:
         return np.zeros((n_centroids, 1)), np.zeros((n_centroids, 1))
+    k_eff = min(k, n_centroids - 1)
     # Build a k-d tree for efficient nearest neighbor search
     tree = cKDTree(centroids)
     # Query the k+1 nearest neighbors (including self)
-    distances, indices = tree.query(centroids, k=k+1,distance_upper_bound=distance_thres)  # distances.shape = (n, k+1)
-    return distances[:, 1:k+1],indices[:, 1:k+1]
+    distances, indices = tree.query(
+        centroids,
+        k=k_eff + 1,
+        distance_upper_bound=distance_thres,
+    )
+    return distances[:, 1:k_eff + 1], indices[:, 1:k_eff + 1]
 
 
 def feature53_extraction_parallel(
@@ -258,7 +263,12 @@ def feature53_extraction_parallel(
                 out.append(res)
         return out
 
-    results = Parallel(n_jobs=n_thread)(delayed(process_chunk)(chunk) for chunk in chunks) #,backend='threading'
+    # RegionProperties instances in ``valid_regions`` are not reliably
+    # picklable, so process-based joblib workers can fail while deserializing
+    # this closure. Threads also share the memory-mapped image arrays.
+    results = Parallel(n_jobs=n_thread, backend="threading")(
+        delayed(process_chunk)(chunk) for chunk in chunks
+    )
     flat = [item for sub in results for item in sub]
     if len(flat) == 0:
         return np.empty((0,), dtype=np.int32), np.empty((0, 0), dtype=np.float32)

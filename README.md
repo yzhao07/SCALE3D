@@ -6,10 +6,10 @@ Scalable 3D pathology cell-interaction analysis via supercell graphs for prostat
 
 ## Overview
 
-SCALE3D processes multiplexed 3D pathology images in four stages:
+SCALE3D processes 3D pathology images in four stages:
 
 1. **Nuclei segmentation and feature extraction** segments nuclei and calculates per-nucleus morphology, intensity, texture, neighborhood, gland, and spatial features.
-2. **Supercell formation** groups spatially adjacent and phenotypically similar nuclei into epithelial or stromal supercells.
+2. **Supercell formation** groups spatially adjacent and morphologically similar nuclei into supercells.
 3. **Supercell subtyping** learns cohort-level epithelial and stromal supercell subtypes using PCA, Harmony, a neighbor graph, and Leiden clustering.
 4. **Graph construction and feature extraction** constructs spatial supercell graphs and aggregates their interaction, enrichment, centrality, and topology measurements into one feature vector per specimen.
 
@@ -18,56 +18,41 @@ SCALE3D processes multiplexed 3D pathology images in four stages:
 | 1. Segmentation and nuclear features | 3D HDF5 volume and gland mask | Nucleus masks and per-nucleus arrays |
 | 2. Supercell formation | Per-nucleus arrays and fitted scaler | Per-supercell arrays and membership maps |
 | 3. Supercell subtyping | Cohort supercell arrays | Epithelial and stromal `.h5ad` files |
-| 4. Graph features | Supercells, subtype files, and metadata | Specimen-level feature CSV |
+| 4. Graph features | Supercells, subtype files, and metadata | Specimen-level SCALE3D feature CSV |
 
-## Repository structure
 
-```text
-SCALE3D/
-├── 01.Nulcei_segmentation_and_feature_extraction/
-│   ├── Nuclei_segmentation.py
-│   ├── Feature_extraction.py
-│   ├── model/
-│   └── utils/
-├── 02.Supercell_formation/
-│   ├── super_cell_identification.py
-│   └── supercell_graph/
-├── 03.Supercell_subtyping/cluster_supercell.py
-├── 04.Graph_construction_and_graph_feature_extraction/
-│   └── graph_formation_and_graph_feature_extraction.py
-└── Evaluation/
+## Environment
+
+Stage 1 and stages 2–4 use separate environments because Cellpose 3 requires an older NumPy range than the RAPIDS workflow.
+
+For stage 1, use the Cellpose environment:
+
+```bash
+CONDA_CHANNEL_PRIORITY=strict conda env create --solver libmamba -f environment-stage1.yml
+conda activate scale3d-cellpose
 ```
 
-## Requirements
 
-The repository does not yet include a pinned environment file. The scripts require these major packages:
+For stages 2–4, create the dedicated RAPIDS environment:
 
-- Python 3, NumPy, pandas, SciPy, scikit-image, scikit-learn, and joblib
-- h5py and nibabel
-- PyTorch and Cellpose with a CUDA-capable GPU for 3D segmentation
-- Scanpy and AnnData
-- CuPy, RAPIDS SingleCell, and RMM with compatible CUDA versions for subtyping
-- Squidpy for spatial graph construction
+```bash
+CONDA_CHANNEL_PRIORITY=strict PIP_NO_DEPS=1 conda env create --solver libmamba -f environment-stage2-4.yml
+conda activate scale3d-nested-loocv
+```
 
-Stage 3 currently requires a CUDA GPU and has no CPU fallback. Install mutually compatible CUDA, PyTorch, Cellpose, CuPy, RAPIDS SingleCell, and RMM versions for the target system. Run the commands below from the repository root.
+## Included example data
 
-## Recommended data layout
+> **Test-data notice:** The test data are provided only to illustrate the SCALE3D workflow and verify that each pipeline stage runs successfully. They are not intended to reproduce the study results. The parameters used for the analyses reported in this study are documented in the manuscript.
+
+The examples below show only required arguments and values that differ from the script defaults. Run any script with `--help` to see all available arguments and their default values
 
 ```text
-DATA_ROOT/
-├── sample_A/
-│   ├── image.h5
-│   ├── gland_mask.nii.gz
-│   ├── cellpose/
-│   ├── individual_cells/
-│   └── supercell/
-├── sample_B/
-│   └── ...
-├── samples.csv
-├── metadata.csv
-├── normalization/feat53_mean_std_scaler.pkl
-├── subtypes/
-└── features/
+test_data/
+├── Test1/{image.h5,gland_mask.nii.gz}
+├── Test2/{image.h5,gland_mask.nii.gz}
+├── Test3/{image.h5,gland_mask.nii.gz}
+├── scale3d_test_samples.csv
+└── feat53_mean_std_scaler.pkl
 ```
 
 ## 1. Nuclei segmentation and nuclear feature extraction
@@ -76,16 +61,7 @@ DATA_ROOT/
 
 Script: `01.Nulcei_segmentation_and_feature_extraction/Nuclei_segmentation.py`
 
-#### Input
-
-The multiplexed 3D HDF5 input must use this hierarchy:
-```text
-/t00000/<channel>/<resolution>/cells
-```
-
-#### Processing and output
-
-Each block is rescaled and filtered, then processed by the Cellpose `nuclei` model with `denoise_nuclei` restoration in 3D. The output is:
+#### Output
 
 ```text
 cellpose/
@@ -95,27 +71,23 @@ cellpose/
 └── imgdn_blk_<x>_<y>.avi      # optional
 ```
 
-#### Example
+#### Illustrative test-data example
 
 ```bash
-python 01.Nulcei_segmentation_and_feature_extraction/Nuclei_segmentation.py \
-  --h5 /path/to/DATA_ROOT/sample_A/image.h5 \
-  --outdir /path/to/DATA_ROOT/sample_A/cellpose
+for SAMPLE in Test1 Test2 Test3; do
+  python 01.Nulcei_segmentation_and_feature_extraction/Nuclei_segmentation.py \
+    --h5 "test_data/${SAMPLE}/image.h5" \
+    --depth 64 \
+    --block_size 128 \
+    --grid_size 2 \
+    --visualization true
+done
 ```
+
 
 ### 1.2 Nuclear feature extraction
 
 Script: `01.Nulcei_segmentation_and_feature_extraction/Feature_extraction.py`
-
-#### Input
-
-This step requires the original HDF5 file, the `cellpose/` directory, an aligned 3D gland-mask NIfTI, and a cytoplasmic channel. 
-
-| Argument | Required | Default | Meaning |
-| --- | --- | --- | --- |
-| `--h5` | Yes | — | Original HDF5 volume |
-| `--CellposeDir` | Yes | — | Segmentation directory |
-| `--gland` | Yes | — | Aligned gland-mask NIfTI |
 
 The code clears border-touching nuclei, removes objects smaller than 150 voxels, and calculates morphology, nuclear/cytoplasmic intensity, crowdedness, entropy, GLCM texture, gland membership, and coordinates.
 
@@ -126,36 +98,31 @@ individual_cells/
 ├── feature53_blk_<x>_<y>.npz
 └── label53_blk_<x>_<y>.npz
 ```
-
 The feature53_blk array contain 12 morphology, 10 intensity/crowdedness, 1 entropy, and 30 three-plane GLCM features. The label array contains the connected-component ID corresponding to every row.
 
-#### Example
+#### Illustrative test-data example
 
 ```bash
-python 01.Nulcei_segmentation_and_feature_extraction/Feature_extraction.py \
-  --h5 /path/to/DATA_ROOT/sample_A/image.h5 \
-  --CellposeDir /path/to/DATA_ROOT/sample_A/cellpose \
-  --gland /path/to/DATA_ROOT/sample_A/gland_mask.nii.gz
-
+for SAMPLE in Test1 Test2 Test3; do
+  python 01.Nulcei_segmentation_and_feature_extraction/Feature_extraction.py \
+    --h5 "test_data/${SAMPLE}/image.h5" \
+    --CellposeDir "test_data/${SAMPLE}/cellpose" \
+    --gland "test_data/${SAMPLE}/gland_mask.nii.gz" \
+    --depth 64 \
+    --block_size 128 \
+    --grid_size 2 \
+    --temp_dir "/tmp/scale3d_${SAMPLE}"
+done
 ```
+
+This writes `feature53_blk_<x>_<y>.npz` and `label53_blk_<x>_<y>.npz` to `test_data/<SAMPLE>/individual_cells/`. A small example block may contain no nuclei after postprocessing; in that case, its saved arrays are empty.
 
 ## 2. Supercell formation
 
 Script: `02.Supercell_formation/super_cell_identification.py`
 
-### Input
-
-This stage consumes `feature53_blk_<x>_<y>.npz` and `label53_blk_<x>_<y>.npz`.
-
 ### Output
 
-Default-style names are:
-
-```text
-supercell/
-├── supercell_1024_feature53_d30_blk_0_0.npz
-└── supercell_1024_nucleiId53_d30_blk_0_0.npy
-```
 Each feature array has **270 columns**:
 
 | Columns | Contents |
@@ -175,13 +142,23 @@ The membership `.npy` is a pickled dictionary from supercell row index to nucleu
 membership = np.load("nucleiId_file.npy", allow_pickle=True).item()
 ```
 
-### Example
+### Illustrative test-data example
 
 ```bash
-python 02.Supercell_formation/super_cell_identification.py \
-  --cellseg /path/to/DATA_ROOT/sample_A/cellpose \
-  --individual_cells_dir /path/to/DATA_ROOT/sample_A/individual_cells \
-  --out_folder /path/to/DATA_ROOT/sample_A/supercell
+for SAMPLE in Test1 Test2 Test3; do
+  python 02.Supercell_formation/super_cell_identification.py \
+    --cellseg "test_data/${SAMPLE}/cellpose" \
+    --normalization test_data/feat53_mean_std_scaler.pkl \
+    --patch_size 128 \
+    --block_size 128 \
+    --grid_size 2 \
+    --slide_size 256 \
+    --distance_thres 10 \
+    --min_size 1 \
+    --min_cells_per_type 1 \
+    --epithelium_label 2 \
+    --stroma_label 3
+done
 ```
 
 ## 3. Supercell subtyping
@@ -189,19 +166,6 @@ python 02.Supercell_formation/super_cell_identification.py \
 Script: `03.Supercell_subtyping/cluster_supercell.py`
 
 This is a cohort-level step and must be run separately for epithelial and stromal supercells.
-
-### Input
-
-Create a sample CSV:
-
-```csv
-name
-sample_A
-sample_B
-sample_C
-```
-
-The script converts centroids to specimen-wide coordinates and uses only columns `1:54`—the 53 mean nucleus features. It scales them, computes 20 principal components, applies Harmony using `slide_id`, and runs a neighbor graph, UMAP, and Leiden clustering on the GPU.
 
 ### Output
 
@@ -215,51 +179,39 @@ The script converts centroids to specimen-wide coordinates and uses only columns
 | `adata.obsm["X_pca_harmony"]` | Harmony representation |
 | `adata.obsm["X_umap_harmony"]` | UMAP coordinates |
 
-### Epithelial example
+### Illustrative epithelial test-data example
 
 ```bash
 python 03.Supercell_subtyping/cluster_supercell.py \
-  --file_list /path/to/DATA_ROOT/samples.csv \
-  --supercell_root /path/to/DATA_ROOT \
-  --data supercell_1024_feature53_d30_blk \
+  --file_list test_data/scale3d_test_samples.csv \
+  --supercell_root test_data \
+  --data supercell_128_feature53_r10_blk \
   --epithelial_or_stromal 1 \
-  --outfile /path/to/DATA_ROOT/subtypes/epithelial.h5ad \
-  --resolution 0.1 --neighbors 50 \
-  --block_size 1024 --grid_size 4 \
-  --gpu_id 0 --n_jobs 16
+  --outfile test_data/subtypes/epithelial_r10.h5ad \
+  --neighbors 10 \
+  --block_size 128 --grid_size 2 \
+  --n_jobs 1 \
+  --skip_umap
 ```
 
-### Stromal example
+### Illustrative stromal test-data example
 
 ```bash
 python 03.Supercell_subtyping/cluster_supercell.py \
-  --file_list /path/to/DATA_ROOT/samples.csv \
-  --supercell_root /path/to/DATA_ROOT \
-  --data supercell_1024_feature53_d30_blk \
+  --file_list test_data/scale3d_test_samples.csv \
+  --supercell_root test_data \
+  --data supercell_128_feature53_r10_blk \
   --epithelial_or_stromal 0 \
-  --outfile /path/to/DATA_ROOT/subtypes/stromal.h5ad \
-  --resolution 0.1 --neighbors 50 \
-  --block_size 1024 --grid_size 4 \
-  --gpu_id 0 --n_jobs 16
+  --outfile test_data/subtypes/stromal_r10.h5ad \
+  --neighbors 10 \
+  --block_size 128 --grid_size 2 \
+  --n_jobs 1 \
+  --skip_umap
 ```
 
 ## 4. Graph construction and graph feature extraction
 
 Script: `04.Graph_construction_and_graph_feature_extraction/graph_formation_and_graph_feature_extraction.py`
-
-### Input
-
-This cohort-level stage requires the epithelial and stromal `.h5ad` files, stage-2 supercell arrays, and a metadata CSV.
-
-| Argument | Required | Default | Meaning |
-| --- | --- | --- | --- |
-| `--metadata_csv` | Yes | — | Metadata and labels |
-| `--epi_h5ad` | Yes | — | Epithelial subtypes |
-| `--stromal_h5ad` | Yes | — | Stromal subtypes |
-| `--feature_file_prefix` | Yes | — | Stage-2 filename prefix |
-| `--supercell_root` | Yes | — | Root containing sample directories |
-| `--output_csv` | Yes | — | Output feature table |
-| `--radius` | Yes | `40` | Graph radius in voxel units |
 
 ### Output
 
@@ -275,21 +227,21 @@ sample
 label
 ```
 
-This is the main SCALE3D specimen representation and can be used by the notebooks under `Evaluation/`.
+This is the main SCALE3D specimen-level features.
 
-### Example
+### Illustrative test-data example
 
 ```bash
 python 04.Graph_construction_and_graph_feature_extraction/graph_formation_and_graph_feature_extraction.py \
-  --metadata_csv /path/to/DATA_ROOT/metadata.csv \
-  --epi_h5ad /path/to/DATA_ROOT/subtypes/epithelial.h5ad \
-  --stromal_h5ad /path/to/DATA_ROOT/subtypes/stromal.h5ad \
-  --supercell_root /path/to/DATA_ROOT \
-  --feature_file_prefix supercell_1024_feature53_d30_blk \
-  --output_csv /path/to/DATA_ROOT/features/scale3d_graph_features.csv \
-  --label_column BCR5yr --sample_column name \
-  --radius 40 --block_size 1024 --n_jobs 6
+  --metadata_csv test_data/scale3d_test_samples.csv \
+  --epi_h5ad test_data/subtypes/epithelial_r10.h5ad \
+  --stromal_h5ad test_data/subtypes/stromal_r10.h5ad \
+  --supercell_root test_data \
+  --feature_file_prefix supercell_128_feature53_r10_blk \
+  --output_csv test_data/features/scale3d_graph_features_r10.csv \
+  --block_size 128 \
+  --n_jobs 1
 ```
 
 ## Evaluation
-
+This directory contains the final nested-LOOCV LASSO and Cox regression results, along with ROC/Kaplan–Meier visualizations and paired AUC, hazard-ratio, concordance-index, and log-rank statistical comparisons.

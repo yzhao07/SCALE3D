@@ -1,0 +1,19 @@
+name: scale3d-cellpose
+
+channels:
+  - nvidia
+  - conda-forge
+
+dependencies:
+  - python=3.10
+  - numpy=2.0
+  - scipy=1.15
+  - scikit-image=0.24
+  - h5py
+  - nibabel=5.4
+  - joblib=1.5
+  - pip
+  - pip:
+      - cellpose==3.1.1.2
+      - torch==2.14.0
+      - torchvision==0.29.0
