@@ -33,7 +33,7 @@ conda activate scale3d-cellpose
 ```
 
 
-For stages 2–4, create the dedicated RAPIDS environment:
+For stages 2–4, create the RAPIDS environment:
 
 ```bash
 CONDA_CHANNEL_PRIORITY=strict PIP_NO_DEPS=1 conda env create --solver libmamba -f environment-stage2-4.yml
@@ -71,7 +71,7 @@ cellpose/
 └── imgdn_blk_<x>_<y>.avi      # optional
 ```
 
-#### Illustrative test-data example
+#### test-data example
 
 ```bash
 for SAMPLE in Test1 Test2 Test3; do
@@ -100,7 +100,7 @@ individual_cells/
 ```
 The feature53_blk array contain 12 morphology, 10 intensity/crowdedness, 1 entropy, and 30 three-plane GLCM features. The label array contains the connected-component ID corresponding to every row.
 
-#### Illustrative test-data example
+#### test-data example
 
 ```bash
 for SAMPLE in Test1 Test2 Test3; do
@@ -142,7 +142,7 @@ The membership `.npy` is a pickled dictionary from supercell row index to nucleu
 membership = np.load("nucleiId_file.npy", allow_pickle=True).item()
 ```
 
-### Illustrative test-data example
+#### test-data example
 
 ```bash
 for SAMPLE in Test1 Test2 Test3; do
@@ -179,7 +179,7 @@ This is a cohort-level step and must be run separately for epithelial and stroma
 | `adata.obsm["X_pca_harmony"]` | Harmony representation |
 | `adata.obsm["X_umap_harmony"]` | UMAP coordinates |
 
-### Illustrative epithelial test-data example
+#### epithelial test-data example
 
 ```bash
 python 03.Supercell_subtyping/cluster_supercell.py \
@@ -194,7 +194,7 @@ python 03.Supercell_subtyping/cluster_supercell.py \
   --skip_umap
 ```
 
-### Illustrative stromal test-data example
+#### stromal test-data example
 
 ```bash
 python 03.Supercell_subtyping/cluster_supercell.py \
@@ -227,9 +227,7 @@ sample
 label
 ```
 
-This is the main SCALE3D specimen-level features.
-
-### Illustrative test-data example
+#### test-data example
 
 ```bash
 python 04.Graph_construction_and_graph_feature_extraction/graph_formation_and_graph_feature_extraction.py \
